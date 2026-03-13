@@ -104,7 +104,8 @@ class IsaacAlgoObserver(AlgoObserver):
             self.direct_info = {}
             for k, v in infos.items():
                 # only log scalars
-                if isinstance(v, float) or isinstance(v, int) or (isinstance(v, torch.Tensor) and len(v.shape) == 0):
+                if isinstance(v, float) or isinstance(v, int) or (isinstance(v, torch.Tensor) and len(v.shape) == 0) \
+                    or isinstance(v, np.float32) or (isinstance(v, np.ndarray) and v.shape == ()):
                     self.direct_info[k] = v
 
     def after_clear_stats(self):
@@ -128,12 +129,13 @@ class IsaacAlgoObserver(AlgoObserver):
             self.ep_infos.clear()
         # log scalars from env information
         for k, v in self.direct_info.items():
-            self.writer.add_scalar(f"{k}/frame", v, frame)
-            self.writer.add_scalar(f"{k}/iter", v, epoch_num)
-            self.writer.add_scalar(f"{k}/time", v, total_time)
+            self.writer.add_scalar(f"{k}", v, epoch_num)
+            # self.writer.add_scalar(f"{k}/frame", v, frame)
+            # self.writer.add_scalar(f"{k}/iter", v, epoch_num)
+            # self.writer.add_scalar(f"{k}/time", v, total_time)
         # log mean reward/score from the env
         if self.mean_scores.current_size > 0:
             mean_scores = self.mean_scores.get_mean()
-            self.writer.add_scalar("scores/mean", mean_scores, frame)
+            self.writer.add_scalar("scores/frame", mean_scores, frame)
             self.writer.add_scalar("scores/iter", mean_scores, epoch_num)
             self.writer.add_scalar("scores/time", mean_scores, total_time)
