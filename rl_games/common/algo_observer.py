@@ -129,10 +129,9 @@ class IsaacAlgoObserver(AlgoObserver):
             self.ep_infos.clear()
         # log scalars from env information
         for k, v in self.direct_info.items():
-            self.writer.add_scalar(f"{k}", v, epoch_num)
-            # self.writer.add_scalar(f"{k}/frame", v, frame)
-            # self.writer.add_scalar(f"{k}/iter", v, epoch_num)
-            # self.writer.add_scalar(f"{k}/time", v, total_time)
+            self.writer.add_scalar(f"{k}/frame", v, frame)
+            self.writer.add_scalar(f"{k}/iter", v, epoch_num)
+            self.writer.add_scalar(f"{k}/time", v, total_time)
         # log mean reward/score from the env
         if self.mean_scores.current_size > 0:
             mean_scores = self.mean_scores.get_mean()
