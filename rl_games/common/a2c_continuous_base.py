@@ -179,8 +179,8 @@ class ContinuousA2CBase(A2CBase):
         start_time = time.perf_counter()
         total_time = 0
         rep_count = 0
+
         self.obs = self.env_reset()
-        self.curr_frames = self.batch_size_envs
 
         if self.multi_gpu:
             torch.cuda.set_device(self.local_rank)
@@ -197,20 +197,20 @@ class ContinuousA2CBase(A2CBase):
         while True:
             epoch_num = self.update_epoch()
             step_time, play_time, update_time, sum_time, a_losses, c_losses, b_losses, entropies, kls, last_lr, lr_mul = self.train_epoch()
-            total_time += sum_time
-            frame = self.frame // self.num_agents
 
             # cleaning memory to optimize space
             self.dataset.update_values_dict(None)
+            total_time += sum_time
+            curr_frames = self.curr_frames * self.world_size if self.multi_gpu else self.curr_frames
+            self.frame += curr_frames
             should_exit = False
 
             if self.global_rank == 0:
                 self.diagnostics.epoch(self, current_epoch=epoch_num)
-                # do we need scaled_time?
                 scaled_time = self.num_agents * sum_time
                 scaled_play_time = self.num_agents * play_time
-                curr_frames = self.curr_frames * self.world_size if self.multi_gpu else self.curr_frames
-                self.frame += curr_frames
+
+                frame = self.frame // self.num_agents
 
                 print_statistics(self.print_stats, curr_frames, step_time, scaled_play_time, scaled_time,
                                 epoch_num, self.max_epochs, frame, self.max_frames)
@@ -231,14 +231,14 @@ class ContinuousA2CBase(A2CBase):
                     for i in range(self.value_size):
                         rewards_name = 'rewards' if i == 0 else 'rewards{0}'.format(i)
                         self.writer.add_scalar(rewards_name + '/step'.format(i), mean_rewards[i], frame)
-                        self.writer.add_scalar(rewards_name + '/iter'.format(i), mean_rewards[i], epoch_num)
+                        self.writer.add_scalar(rewards_name + '/epoch'.format(i), mean_rewards[i], epoch_num)
                         self.writer.add_scalar(rewards_name + '/time'.format(i), mean_rewards[i], total_time)
                         self.writer.add_scalar('shaped_' + rewards_name + '/step'.format(i), mean_shaped_rewards[i], frame)
-                        self.writer.add_scalar('shaped_' + rewards_name + '/iter'.format(i), mean_shaped_rewards[i], epoch_num)
+                        self.writer.add_scalar('shaped_' + rewards_name + '/epoch'.format(i), mean_shaped_rewards[i], epoch_num)
                         self.writer.add_scalar('shaped_' + rewards_name + '/time'.format(i), mean_shaped_rewards[i], total_time)
 
                     self.writer.add_scalar('episode_lengths/step', mean_lengths, frame)
-                    self.writer.add_scalar('episode_lengths/iter', mean_lengths, epoch_num)
+                    self.writer.add_scalar('episode_lengths/epoch', mean_lengths, epoch_num)
                     self.writer.add_scalar('episode_lengths/time', mean_lengths, total_time)
 
                     if self.has_self_play_config:

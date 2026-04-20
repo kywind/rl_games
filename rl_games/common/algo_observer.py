@@ -19,6 +19,9 @@ class AlgoObserver:
     def after_steps(self):
         pass
 
+    def after_clear_stats(self):
+        pass
+
     def after_print_stats(self, frame, epoch_num, total_time):
         pass
 
@@ -74,8 +77,8 @@ class DefaultAlgoObserver(AlgoObserver):
     def after_print_stats(self, frame, epoch_num, total_time):
         if self.game_scores.current_size > 0 and self.writer is not None:
             mean_scores = self.game_scores.get_mean()
-            self.writer.add_scalar('scores/mean', mean_scores, frame)
-            self.writer.add_scalar('scores/iter', mean_scores, epoch_num)
+            self.writer.add_scalar('scores/step', mean_scores, frame)
+            self.writer.add_scalar('scores/epoch', mean_scores, epoch_num)
             self.writer.add_scalar('scores/time', mean_scores, total_time)
 
 
@@ -87,7 +90,6 @@ class IsaacAlgoObserver(AlgoObserver):
 
     def after_init(self, algo):
         self.algo = algo
-        self.mean_scores = torch_ext.AverageMeter(1, self.algo.games_to_track).to(self.algo.ppo_device)
         self.ep_infos = []
         self.direct_info = {}
         self.writer = self.algo.writer
@@ -108,10 +110,6 @@ class IsaacAlgoObserver(AlgoObserver):
                     or isinstance(v, np.float32) or (isinstance(v, np.ndarray) and v.shape == ()):
                     self.direct_info[k] = v
 
-    def after_clear_stats(self):
-        # clear stored buffers
-        self.mean_scores.clear()
-
     def after_print_stats(self, frame, epoch_num, total_time):
         # log scalars from the episode
         if self.ep_infos:
@@ -129,12 +127,6 @@ class IsaacAlgoObserver(AlgoObserver):
             self.ep_infos.clear()
         # log scalars from env information
         for k, v in self.direct_info.items():
-            self.writer.add_scalar(f"{k}/frame", v, frame)
-            self.writer.add_scalar(f"{k}/iter", v, epoch_num)
+            self.writer.add_scalar(f"{k}/step", v, frame)
+            self.writer.add_scalar(f"{k}/epoch", v, epoch_num)
             self.writer.add_scalar(f"{k}/time", v, total_time)
-        # log mean reward/score from the env
-        if self.mean_scores.current_size > 0:
-            mean_scores = self.mean_scores.get_mean()
-            self.writer.add_scalar("scores/frame", mean_scores, frame)
-            self.writer.add_scalar("scores/iter", mean_scores, epoch_num)
-            self.writer.add_scalar("scores/time", mean_scores, total_time)

@@ -154,7 +154,7 @@ class DiscreteA2CBase(A2CBase):
 
     def train(self):
         self.init_tensors()
-        self.mean_rewards = self.last_mean_rewards = -1000000000
+        self.last_mean_rewards = -1000000000
         start_time = time.perf_counter()
         total_time = 0
         rep_count = 0
@@ -171,6 +171,7 @@ class DiscreteA2CBase(A2CBase):
             self.model.load_state_dict(model_params[0])
             if self.has_central_value:
                 self.central_value_net.load_state_dict(model_params[1])
+            print("====================broadcast done")
 
         while True:
             epoch_num = self.update_epoch()
@@ -197,8 +198,6 @@ class DiscreteA2CBase(A2CBase):
                                 a_losses, c_losses, entropies, kls, last_lr, lr_mul, frame,
                                 scaled_time, scaled_play_time, curr_frames)
 
-                self.algo_observer.after_print_stats(frame, epoch_num, total_time)
-
                 if self.game_rewards.current_size > 0:
                     mean_rewards = self.game_rewards.get_mean()
                     mean_shaped_rewards = self.game_shaped_rewards.get_mean()
@@ -208,14 +207,14 @@ class DiscreteA2CBase(A2CBase):
                     for i in range(self.value_size):
                         rewards_name = 'rewards' if i == 0 else 'rewards{0}'.format(i)
                         self.writer.add_scalar(rewards_name + '/step'.format(i), mean_rewards[i], frame)
-                        self.writer.add_scalar(rewards_name + '/iter'.format(i), mean_rewards[i], epoch_num)
+                        self.writer.add_scalar(rewards_name + '/epoch'.format(i), mean_rewards[i], epoch_num)
                         self.writer.add_scalar(rewards_name + '/time'.format(i), mean_rewards[i], total_time)
                         self.writer.add_scalar('shaped_' + rewards_name + '/step'.format(i), mean_shaped_rewards[i], frame)
-                        self.writer.add_scalar('shaped_' + rewards_name + '/iter'.format(i), mean_shaped_rewards[i], epoch_num)
+                        self.writer.add_scalar('shaped_' + rewards_name + '/epoch'.format(i), mean_shaped_rewards[i], epoch_num)
                         self.writer.add_scalar('shaped_' + rewards_name + '/time'.format(i), mean_shaped_rewards[i], total_time)
 
                     self.writer.add_scalar('episode_lengths/step', mean_lengths, frame)
-                    self.writer.add_scalar('episode_lengths/iter', mean_lengths, epoch_num)
+                    self.writer.add_scalar('episode_lengths/epoch', mean_lengths, epoch_num)
                     self.writer.add_scalar('episode_lengths/time', mean_lengths, total_time)
 
                     if self.has_self_play_config:
