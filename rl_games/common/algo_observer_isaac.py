@@ -1,0 +1,53 @@
+import torch
+import numpy as np
+from rl_games.common.algo_observer_base import AlgoObserver
+
+
+class IsaacAlgoObserver(AlgoObserver):
+    """Log statistics from the environment along with the algorithm running stats."""
+
+    def __init__(self):
+        pass
+
+    def after_init(self, algo):
+        self.algo = algo
+        self.ep_infos = []
+        self.direct_info = {}
+        self.writer = self.algo.writer
+
+    def process_infos(self, infos, done_indices):
+        if not isinstance(infos, dict):
+            classname = self.__class__.__name__
+            raise ValueError(f"{classname} expected 'infos' as dict. Received: {type(infos)}")
+        # store episode information
+        if "episode" in infos:
+            self.ep_infos.append(infos["episode"])
+        # log other variables directly
+        if len(infos) > 0 and isinstance(infos, dict):  # allow direct logging from env
+            self.direct_info = {}
+            for k, v in infos.items():
+                # only log scalars
+                if isinstance(v, float) or isinstance(v, int) or (isinstance(v, torch.Tensor) and len(v.shape) == 0) \
+                    or isinstance(v, np.float32) or (isinstance(v, np.ndarray) and v.shape == ()):
+                    self.direct_info[k] = v
+
+    def after_print_stats(self, frame, epoch_num, total_time):
+        # log scalars from the episode
+        if self.ep_infos:
+            for key in self.ep_infos[0]:
+                info_tensor = torch.tensor([], device=self.algo.device)
+                for ep_info in self.ep_infos:
+                    # handle scalar and zero dimensional tensor infos
+                    if not isinstance(ep_info[key], torch.Tensor):
+                        ep_info[key] = torch.Tensor([ep_info[key]])
+                    if len(ep_info[key].shape) == 0:
+                        ep_info[key] = ep_info[key].unsqueeze(0)
+                    info_tensor = torch.cat((info_tensor, ep_info[key].to(self.algo.device)))
+                value = torch.mean(info_tensor)
+                self.writer.add_scalar("Episode/" + key, value, epoch_num)
+            self.ep_infos.clear()
+        # log scalars from env information
+        for k, v in self.direct_info.items():
+            self.writer.add_scalar(f"{k}/step", v, frame)
+            self.writer.add_scalar(f"{k}/epoch", v, epoch_num)
+            self.writer.add_scalar(f"{k}/time", v, total_time)
