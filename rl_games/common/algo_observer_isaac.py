@@ -12,6 +12,7 @@ class IsaacAlgoObserver(AlgoObserver):
     def after_init(self, algo):
         self.algo = algo
         self.ep_infos = []
+        self.reward_comps = []
         self.direct_info = {}
         self.writer = self.algo.writer
 
@@ -22,6 +23,8 @@ class IsaacAlgoObserver(AlgoObserver):
         # store episode information
         if "episode" in infos:
             self.ep_infos.append(infos["episode"])
+        if "rewards_comp" in infos:
+            self.reward_comps.append(infos["rewards_comp"])
         # log other variables directly
         if len(infos) > 0 and isinstance(infos, dict):  # allow direct logging from env
             self.direct_info = {}
@@ -43,11 +46,27 @@ class IsaacAlgoObserver(AlgoObserver):
                     if len(ep_info[key].shape) == 0:
                         ep_info[key] = ep_info[key].unsqueeze(0)
                     info_tensor = torch.cat((info_tensor, ep_info[key].to(self.algo.device)))
-                value = torch.mean(info_tensor)
-                self.writer.add_scalar("Episode/" + key, value, epoch_num)
+                if key[:-4] == '_sum':
+                    value = torch.sum(info_tensor)
+                else:
+                    value = torch.mean(info_tensor)
+                self.writer.add_scalar("episode/" + key, value, epoch_num)
             self.ep_infos.clear()
+        if self.reward_comps:
+            for key in self.reward_comps[0]:
+                comp_tensor = torch.tensor([], device=self.algo.device)
+                for comp in self.reward_comps:
+                    if not isinstance(comp[key], torch.Tensor):
+                        comp[key] = torch.Tensor([comp[key]])
+                    if len(comp[key].shape) == 0:
+                        comp[key] = comp[key].unsqueeze(0)
+                    comp_tensor = torch.cat((comp_tensor, comp[key].to(self.algo.device)))
+                if key[:-4] == '_sum':
+                    value = torch.sum(comp_tensor)
+                else:
+                    value = torch.mean(comp_tensor)
+                self.writer.add_scalar("rewards_comp/" + key, value, epoch_num)
+            self.reward_comps.clear()
         # log scalars from env information
         for k, v in self.direct_info.items():
-            self.writer.add_scalar(f"{k}/step", v, frame)
-            self.writer.add_scalar(f"{k}/epoch", v, epoch_num)
-            self.writer.add_scalar(f"{k}/time", v, total_time)
+            self.writer.add_scalar(k, v, epoch_num)

@@ -240,10 +240,11 @@ class A2CBase(BaseAlgorithm):
         self.tau = self.config['tau']
 
         self.games_to_track = self.config.get('games_to_track', 100)
+        print('Games to track for reward and score statistics: ', self.games_to_track)
         print('current training device:', self.ppo_device)
-        self.game_rewards = torch_ext.AverageMeter(self.value_size, self.games_to_track).to(self.ppo_device)
-        self.game_shaped_rewards = torch_ext.AverageMeter(self.value_size, self.games_to_track).to(self.ppo_device)
-        self.game_lengths = torch_ext.AverageMeter(1, self.games_to_track).to(self.ppo_device)
+        self.game_rewards = torch_ext.BufferMeter(self.value_size, self.games_to_track).to(self.ppo_device)
+        self.game_shaped_rewards = torch_ext.BufferMeter(self.value_size, self.games_to_track).to(self.ppo_device)
+        self.game_lengths = torch_ext.BufferMeter(1, self.games_to_track).to(self.ppo_device)
         self.obs = None
 
         self.batch_size = self.horizon_length * self.num_actors * self.num_agents
@@ -383,23 +384,22 @@ class A2CBase(BaseAlgorithm):
     def write_stats(self, total_time, epoch_num, step_time, play_time, update_time, a_losses, c_losses, entropies, kls, last_lr, lr_mul, frame, scaled_time, scaled_play_time, curr_frames):
         # do we need scaled time?
         self.diagnostics.send_info(self.writer)
-        self.writer.add_scalar('performance/step_inference_rl_update_fps', curr_frames / scaled_time, frame)
-        self.writer.add_scalar('performance/step_inference_fps', curr_frames / scaled_play_time, frame)
-        self.writer.add_scalar('performance/step_fps', curr_frames / step_time, frame)
-        self.writer.add_scalar('performance/rl_update_time', update_time, frame)
-        self.writer.add_scalar('performance/step_inference_time', play_time, frame)
-        self.writer.add_scalar('performance/step_time', step_time, frame)
-        self.writer.add_scalar('losses/a_loss', torch_ext.mean_list(a_losses).item(), frame)
-        self.writer.add_scalar('losses/c_loss', torch_ext.mean_list(c_losses).item(), frame)
-
-        self.writer.add_scalar('losses/entropy', torch_ext.mean_list(entropies).item(), frame)
+        self.writer.add_scalar('train_perf/step_inference_rl_update_fps', curr_frames / scaled_time, epoch_num)
+        self.writer.add_scalar('train_perf/step_inference_fps', curr_frames / scaled_play_time, epoch_num)
+        self.writer.add_scalar('train_perf/step_fps', curr_frames / step_time, epoch_num)
+        self.writer.add_scalar('train_perf/rl_update_time', update_time, epoch_num)
+        self.writer.add_scalar('train_perf/step_inference_time', play_time, epoch_num)
+        self.writer.add_scalar('train_perf/step_time', step_time, epoch_num)
+        self.writer.add_scalar('train_losses/a_loss', torch_ext.mean_list(a_losses).item(), epoch_num)
+        self.writer.add_scalar('train_losses/c_loss', torch_ext.mean_list(c_losses).item(), epoch_num)
+        self.writer.add_scalar('train_losses/entropy', torch_ext.mean_list(entropies).item(), epoch_num)
         for k, v in self.aux_loss_dict.items():
-            self.writer.add_scalar('losses/' + k, torch_ext.mean_list(v).item(), frame)
-        self.writer.add_scalar('info/last_lr', last_lr * lr_mul, frame)
-        self.writer.add_scalar('info/lr_mul', lr_mul, frame)
-        self.writer.add_scalar('info/e_clip', self.e_clip * lr_mul, frame)
-        self.writer.add_scalar('info/kl', torch_ext.mean_list(kls).item(), frame)
-        self.writer.add_scalar('info/epochs', epoch_num, frame)
+            self.writer.add_scalar('train_losses/' + k, torch_ext.mean_list(v).item(), epoch_num)
+        self.writer.add_scalar('train_info/last_lr', last_lr * lr_mul, epoch_num)
+        self.writer.add_scalar('train_info/lr_mul', lr_mul, epoch_num)
+        self.writer.add_scalar('train_info/e_clip', self.e_clip * lr_mul, epoch_num)
+        self.writer.add_scalar('train_info/kl', torch_ext.mean_list(kls).item(), epoch_num)
+        self.writer.add_scalar('train_info/epochs', epoch_num, frame)
         self.algo_observer.after_print_stats(frame, epoch_num, total_time)
 
     def set_eval(self):
@@ -815,9 +815,9 @@ class A2CBase(BaseAlgorithm):
             all_done_indices = self.dones.nonzero(as_tuple=False)
             env_done_indices = all_done_indices[::self.num_agents]
 
-            self.game_rewards.update(self.current_rewards[env_done_indices])
-            self.game_shaped_rewards.update(self.current_shaped_rewards[env_done_indices])
-            self.game_lengths.update(self.current_lengths[env_done_indices])
+            self.game_rewards.update(self.current_rewards, env_done_indices)
+            self.game_shaped_rewards.update(self.current_shaped_rewards, env_done_indices)
+            self.game_lengths.update(self.current_lengths, env_done_indices)
             self.algo_observer.process_infos(infos, env_done_indices)
 
             not_dones_unsq = (1.0 - self.dones.float()).unsqueeze(1)
@@ -896,9 +896,9 @@ class A2CBase(BaseAlgorithm):
                 if self.has_central_value:
                     self.central_value_net.post_step_rnn(all_done_indices)
 
-            self.game_rewards.update(self.current_rewards[env_done_indices])
-            self.game_shaped_rewards.update(self.current_shaped_rewards[env_done_indices])
-            self.game_lengths.update(self.current_lengths[env_done_indices])
+            self.game_rewards.update(self.current_rewards, env_done_indices)
+            self.game_shaped_rewards.update(self.current_shaped_rewards, env_done_indices)
+            self.game_lengths.update(self.current_lengths, env_done_indices)
             self.algo_observer.process_infos(infos, env_done_indices)
 
             not_dones_unsq = (1.0 - self.dones.float()).unsqueeze(1)

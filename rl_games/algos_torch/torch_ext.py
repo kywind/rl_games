@@ -340,6 +340,46 @@ class AverageMeter(nn.Module):
         return self.mean.squeeze(0).cpu().numpy()
 
 
+class BufferMeter(nn.Module):
+    def __init__(self, in_shape, max_size):
+        super(BufferMeter, self).__init__()
+        self.in_shape = in_shape
+        self.max_size = max_size
+        self.register_buffer("updated", torch.zeros(max_size, dtype=torch.bool))
+        self.register_buffer("values", torch.zeros((max_size, in_shape), dtype=torch.float32))
+
+    def update(self, values, indices):
+        indices = indices.flatten()
+        if len(values.shape) == 1:
+            values = values.unsqueeze(1)
+        values_filtered = torch.index_select(values, 0, indices)
+        size = values_filtered.size()[0]
+        if size == 0:
+            return
+        self.updated[indices] = True
+        self.values[indices] = values_filtered.float()
+
+    def clear(self):
+        self.updated.fill_(False)
+        self.values.fill_(0)
+
+    def __len__(self):
+        return self.current_size
+
+    def get_mean(self):
+        return self.mean
+
+    @property
+    def mean(self):
+        if self.updated.sum() == 0:
+            return np.zeros(self.in_shape, dtype=np.float32)
+        return self.values[self.updated].mean(dim=0).cpu().numpy()
+
+    @property
+    def current_size(self):
+        return self.updated.sum().item()
+
+
 class IdentityRNN(nn.Module):
     def __init__(self, in_shape, out_shape):
         super(IdentityRNN, self).__init__()

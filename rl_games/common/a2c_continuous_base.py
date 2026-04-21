@@ -220,7 +220,7 @@ class ContinuousA2CBase(A2CBase):
                                 scaled_time, scaled_play_time, curr_frames)
 
                 if len(b_losses) > 0:
-                    self.writer.add_scalar('losses/bounds_loss', torch_ext.mean_list(b_losses).item(), frame)
+                    self.writer.add_scalar('train_losses/bounds_loss', torch_ext.mean_list(b_losses).item(), epoch_num)
 
                 if self.game_rewards.current_size > 0:
                     mean_rewards = self.game_rewards.get_mean()
@@ -230,16 +230,10 @@ class ContinuousA2CBase(A2CBase):
 
                     for i in range(self.value_size):
                         rewards_name = 'rewards' if i == 0 else 'rewards{0}'.format(i)
-                        self.writer.add_scalar(rewards_name + '/step'.format(i), mean_rewards[i], frame)
-                        self.writer.add_scalar(rewards_name + '/epoch'.format(i), mean_rewards[i], epoch_num)
-                        self.writer.add_scalar(rewards_name + '/time'.format(i), mean_rewards[i], total_time)
-                        self.writer.add_scalar('shaped_' + rewards_name + '/step'.format(i), mean_shaped_rewards[i], frame)
-                        self.writer.add_scalar('shaped_' + rewards_name + '/epoch'.format(i), mean_shaped_rewards[i], epoch_num)
-                        self.writer.add_scalar('shaped_' + rewards_name + '/time'.format(i), mean_shaped_rewards[i], total_time)
+                        self.writer.add_scalar(rewards_name + '/raw'.format(i), mean_rewards[i], epoch_num)
+                        self.writer.add_scalar(rewards_name + '/shaped'.format(i), mean_shaped_rewards[i], epoch_num)
 
-                    self.writer.add_scalar('episode_lengths/step', mean_lengths, frame)
-                    self.writer.add_scalar('episode_lengths/epoch', mean_lengths, epoch_num)
-                    self.writer.add_scalar('episode_lengths/time', mean_lengths, total_time)
+                    self.writer.add_scalar('episode/avg_length', mean_lengths, epoch_num)
 
                     if self.has_self_play_config:
                         self.self_play_manager.update(self)
