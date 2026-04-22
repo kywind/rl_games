@@ -206,8 +206,7 @@ class ContinuousA2CBase(A2CBase):
             should_exit = False
 
             # update env curriculum
-            if hasattr(self.vec_env._env, 'set_curriculum_epoch'):
-                self.vec_env._env.set_curriculum_epoch(self.epoch_num)
+            self.vec_env.set_epoch(self.epoch_num)
 
             if self.global_rank == 0:
                 self.diagnostics.epoch(self, current_epoch=epoch_num)
