@@ -399,7 +399,8 @@ class A2CBase(BaseAlgorithm):
         self.writer.add_scalar('train_info/lr_mul', lr_mul, epoch_num)
         self.writer.add_scalar('train_info/e_clip', self.e_clip * lr_mul, epoch_num)
         self.writer.add_scalar('train_info/kl', torch_ext.mean_list(kls).item(), epoch_num)
-        self.writer.add_scalar('train_info/epochs', epoch_num, frame)
+        self.writer.add_scalar('train_info/total_frames', frame, epoch_num)
+        self.writer.add_scalar('train_info/total_time', total_time, epoch_num)
         self.algo_observer.after_print_stats(frame, epoch_num, total_time)
 
     def set_eval(self):

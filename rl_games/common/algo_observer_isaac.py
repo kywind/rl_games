@@ -46,7 +46,7 @@ class IsaacAlgoObserver(AlgoObserver):
                     if len(ep_info[key].shape) == 0:
                         ep_info[key] = ep_info[key].unsqueeze(0)
                     info_tensor = torch.cat((info_tensor, ep_info[key].to(self.algo.device)))
-                if key[:-4] == '_sum':
+                if key[-4:] == '_sum':
                     value = torch.sum(info_tensor)
                 else:
                     value = torch.mean(info_tensor)
@@ -61,7 +61,7 @@ class IsaacAlgoObserver(AlgoObserver):
                     if len(comp[key].shape) == 0:
                         comp[key] = comp[key].unsqueeze(0)
                     comp_tensor = torch.cat((comp_tensor, comp[key].to(self.algo.device)))
-                if key[:-4] == '_sum':
+                if key[-4:] == '_sum':
                     value = torch.sum(comp_tensor)
                 else:
                     value = torch.mean(comp_tensor)
